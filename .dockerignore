@@ -1,0 +1,11 @@
+data/
+.venv/
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+reference/radar_mockup.html
+specs/
+.specify/
+.claude/
+tests/

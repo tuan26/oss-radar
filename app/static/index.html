@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OSS Radar</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%231d5e86' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%231d5e86' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%231d5e86'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --line:#d9dfe5; --fg:#16212c; --muted:#5b6876;
+  --accent:#1d5e86; --accent-soft:#e3eef5;
+  --ok:#1f7a4d; --ok-bg:#e2f3ea; --warn:#9a5b00; --warn-bg:#fbefd9; --bad:#b0322b; --bad-bg:#f9e1df; --unk:#5f6b78; --unk-bg:#e9edf1;
+  --font-ui:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f151b; --surface:#16202a; --line:#2a3743; --fg:#e4eaf0; --muted:#94a3b2;
+  --accent:#7ab8de; --accent-soft:#1b3144;
+  --ok:#6fcf9b; --ok-bg:#16332a; --warn:#f0b65a; --warn-bg:#3a2c12; --bad:#f08a82; --bad-bg:#3d1d1b; --unk:#a9b5c1; --unk-bg:#252f39; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f151b; --surface:#16202a; --line:#2a3743; --fg:#e4eaf0; --muted:#94a3b2;
+  --accent:#7ab8de; --accent-soft:#1b3144;
+  --ok:#6fcf9b; --ok-bg:#16332a; --warn:#f0b65a; --warn-bg:#3a2c12; --bad:#f08a82; --bad-bg:#3d1d1b; --unk:#a9b5c1; --unk-bg:#252f39; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:14px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:26px;font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--surface)}
+.tabs button:focus-visible,.chip:focus-visible,.row:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Tổng quan license */
+.dist{display:flex;flex-direction:column;gap:6px}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line)}
+.bar span{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters input[type=search]{flex:1 1 220px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);font:inherit}
+.filters select{padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);font:inherit;max-width:100%}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:13px;padding:5px 10px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.count{color:var(--muted);font-size:13px;margin-left:auto}
+
+.main{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:16px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;border-left:3px solid transparent}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--bg)}
+.row[aria-current="true"]{background:var(--accent-soft);border-left-color:var(--accent)}
+.score{font-family:var(--font-mono);font-weight:500;font-size:17px;text-align:center}
+.rname{font-weight:600;overflow-wrap:anywhere}
+.rmeta{color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;gap:2px 10px}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.g-permissive{background:var(--ok-bg);color:var(--ok)} .g-gpl{background:var(--ok-bg);color:var(--ok)}
+.g-agpl{background:var(--warn-bg);color:var(--warn)} .g-single-tenant{background:var(--warn-bg);color:var(--warn)}
+.g-unknown{background:var(--unk-bg);color:var(--unk)} .g-restricted,.g-none{background:var(--bad-bg);color:var(--bad)}
+.rising{font-size:11px;font-weight:600;color:var(--accent)}
+.empty{padding:28px;color:var(--muted);text-align:center}
+
+/* Hồ sơ repo */
+.detail{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;position:sticky;top:max(12px,env(safe-area-inset-top,0px));max-height:calc(100vh - 24px);overflow:auto;display:flex;flex-direction:column;gap:18px}
+@media (max-width:900px){.detail{position:static;max-height:none}}
+.dhead{display:flex;flex-direction:column;gap:6px}
+.dhead h2{margin:0;font-size:20px;overflow-wrap:anywhere}
+.dhead a{color:var(--accent)}
+.desc{color:var(--muted);margin:0}
+.facts{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--muted)}
+.facts b{color:var(--fg);font-weight:500}
+section h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px;font-weight:600}
+.verdict{border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.verdict strong{font-size:15px}
+.verdict p{margin:0}
+.v-ok{background:var(--ok-bg)} .v-ok strong{color:var(--ok)}
+.v-warn{background:var(--warn-bg)} .v-warn strong{color:var(--warn)}
+.v-bad{background:var(--bad-bg)} .v-bad strong{color:var(--bad)}
+.v-unk{background:var(--unk-bg)} .v-unk strong{color:var(--unk)}
+.verdict a{color:inherit;font-size:12.5px}
+.breakdown{display:grid;grid-template-columns:110px minmax(0,1fr) 48px;gap:6px 10px;align-items:center;font-size:13px}
+.track{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.track span{display:block;height:100%;background:var(--accent)}
+.breakdown .mono{text-align:right;color:var(--muted);font-size:12px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:560px){.cols{grid-template-columns:minmax(0,1fr)}}
+ul.clean{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.niche{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.niche div{display:flex;gap:8px}
+.niche div::before{content:"→";color:var(--accent);font-weight:700}
+.hook{border-left:3px solid var(--accent);padding:6px 12px;background:var(--accent-soft);border-radius:0 6px 6px 0;font-weight:500}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:6px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+.riskl li::marker{color:var(--bad)}
+.rfeat{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src{text-transform:none;letter-spacing:0;font-weight:500;color:var(--muted);background:var(--unk-bg);padding:1px 6px;border-radius:4px;margin-left:6px}
+ul.feat{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px}
+@media (max-width:560px){ul.feat{grid-template-columns:minmax(0,1fr)}}
+ul.feat li{padding-left:14px;position:relative;overflow-wrap:anywhere}
+ul.feat li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.strengths{display:flex;flex-direction:column;gap:6px}
+.st{padding:7px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--line);font-size:13px}
+.st-main{background:var(--ok-bg);border-color:transparent;color:var(--fg);font-weight:500}
+
+/* Theo ngành */
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:14px}
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.cat h2{margin:0;font-size:17px}
+.dots{display:flex;gap:12px;font-size:12px;color:var(--muted)}
+.meter{letter-spacing:2px;color:var(--accent);font-family:var(--font-mono)}
+.cat .top{display:flex;flex-direction:column;gap:4px}
+.cat .top button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:6px;border:1px solid var(--line);font-size:13px}
+.cat .top button:hover,.cat .top button:focus-visible{border-color:var(--accent)}
+.note{font-size:12.5px;color:var(--muted);margin:0;max-width:75ch}
+@media (prefers-reduced-motion:no-preference){.row{transition:background .12s}}
+
+/* ---- Bổ sung cho app: thanh trên, tiến độ, cài đặt, trạng thái rỗng ---- */
+html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+body{margin:0}
+button{font:inherit}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
+.brand{min-width:0}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-danger{color:var(--bad);border-color:var(--bad)}
+.btn-sm{padding:4px 10px;font-size:13px;font-weight:500}
+.btn:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.icon-btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);width:36px;height:36px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.tabs{overflow-x:auto;max-width:100%}
+.progress{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.progress .ptop{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:space-between;font-size:13px}
+.progress .pmsg{font-weight:600}
+.pbar{height:8px;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.pbar span{display:block;height:100%;background:var(--accent);transition:width .4s}
+.phases{display:flex;gap:6px;font-size:12px;color:var(--muted)}
+.phases b{color:var(--accent)}
+.runinfo{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--muted)}
+.runinfo b{color:var(--fg);font-weight:500}
+.st-ok{color:var(--ok)} .st-err{color:var(--bad)} .st-stop{color:var(--warn)}
+.badge-new{font-size:11px;font-weight:700;color:var(--ok);background:var(--ok-bg);padding:1px 6px;border-radius:999px;margin-left:4px}
+.delta{color:var(--ok)}
+.emptystate{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 22px;display:flex;flex-direction:column;gap:14px;align-items:flex-start;max-width:720px}
+.emptystate h2{margin:0;font-size:20px}
+.emptystate ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--muted)}
+.legal{border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--muted);margin:0}
+.ainiche{border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:8px 12px;font-size:13px}
+.ainiche b{color:var(--accent)}
+/* Cài đặt */
+.settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card h2{margin:0;font-size:16px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:12.5px;color:var(--muted);font-weight:500}
+.field input,.field select{padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;min-width:0;width:100%}
+.field input:focus-visible,.field select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.msg{font-size:13px;padding:8px 10px;border-radius:6px;margin:0}
+.msg.ok{background:var(--ok-bg);color:var(--ok)} .msg.err{background:var(--bad-bg);color:var(--bad)} .msg.info{background:var(--unk-bg);color:var(--unk)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr));gap:4px 10px;font-size:13px}
+.catgrid label{display:flex;gap:6px;align-items:center;cursor:pointer;text-align:left}
+.catgrid input{width:16px!important;height:16px;flex:none;accent-color:var(--accent)}
+.savebar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0;background:var(--bg)}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:13.5px;box-shadow:0 4px 18px rgba(0,0,0,.2);z-index:10;max-width:calc(100vw - 32px)}
+@media (max-width:560px){.row3{grid-template-columns:repeat(2,minmax(0,1fr))} h1{font-size:22px} .breakdown{grid-template-columns:90px minmax(0,1fr) 44px} .kv{grid-template-columns:minmax(0,1fr)} .kv dt{margin-top:4px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <h1>OSS Radar</h1>
+      <p class="sub">Repo mã nguồn mở có thể đóng gói thành dịch vụ cho SME Việt Nam · quét lúc <span class="mono" id="scanned">chưa quét</span></p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-scan">Quét ngay</button>
+      <button class="icon-btn" id="btn-theme" title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện sáng/tối"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-repo" aria-selected="true">Theo repo</button>
+      <button role="tab" id="tab-cat" aria-selected="false">Theo ngành</button>
+      <button role="tab" id="tab-set" aria-selected="false">Cài đặt</button>
+    </div>
+  </header>
+
+  <div class="progress" id="progress" hidden>
+    <div class="ptop">
+      <span class="pmsg" id="p-msg">Đang quét…</span>
+      <span class="mono" id="p-count"></span>
+      <span class="mono" id="p-elapsed"></span>
+      <button class="btn btn-sm btn-danger" id="btn-stop">Dừng</button>
+    </div>
+    <div class="pbar"><span id="p-bar" style="width:0%"></span></div>
+    <div class="phases" id="p-phases"></div>
+  </div>
+  <div class="runinfo" id="runinfo"></div>
+
+  <div id="view-empty" hidden>
+    <div class="emptystate">
+      <h2>Chưa có dữ liệu</h2>
+      <p class="desc">OSS Radar tìm repo trên GitHub theo 19 ngành, đọc file license để biết có được bán dịch vụ không, chấm điểm và gợi ý cách bán cho doanh nghiệp nhỏ Việt Nam.</p>
+      <ol>
+        <li>Bấm <b>Quét ngay</b>. Không cần AI hay GitHub token; lần đầu mất khoảng 5–10 phút.</li>
+        <li>Tùy chọn: vào <b>Cài đặt</b> để thêm GitHub token (quét nhanh hơn) và AI (tóm tắt tiếng Việt).</li>
+        <li>Tùy chọn: bật lịch quét hằng tuần và thông báo Telegram.</li>
+      </ol>
+      <div class="inline">
+        <button class="btn btn-primary" id="btn-scan2">Quét ngay</button>
+        <button class="btn" id="btn-sample">Xem dữ liệu mẫu (474 repo)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-repo" style="display:contents">
+    <div class="dist">
+      <div class="bar" id="distbar"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="filters">
+      <input type="search" id="q" placeholder="Tìm tên, mô tả, tính năng (vd: Zalo, hóa đơn, kanban)…" aria-label="Tìm repo">
+      <select id="cat" aria-label="Ngành"></select>
+      <select id="sort" aria-label="Sắp xếp">
+        <option value="score">Điểm tổng</option>
+        <option value="vnfit">Phù hợp VN</option>
+        <option value="stars">Số sao</option>
+        <option value="delta">Sao tăng trong tuần</option>
+      </select>
+      <button class="chip" id="f-safe" aria-pressed="true">Ẩn repo bị loại</button>
+      <button class="chip" id="f-saas" aria-pressed="false">Chỉ SaaS thoải mái</button>
+      <button class="chip" id="f-rising" aria-pressed="false">Mới nổi</button>
+      <button class="chip" id="f-new" aria-pressed="false">Mới tuần này</button>
+      <button class="chip" id="f-cur" aria-pressed="false">Có tóm tắt tiếng Việt</button>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="main">
+      <div class="list" id="list" role="list"></div>
+      <article class="detail" id="detail" aria-live="polite"></article>
+    </div>
+  </div>
+
+  <div id="view-cat" hidden>
+    <p class="note">Mỗi ngành gồm ngách nên đánh, khách hàng mục tiêu và các repo an toàn license tốt nhất. Mức nhu cầu và cạnh tranh là đánh giá định tính để bạn kiểm chứng khi phỏng vấn khách, không phải số liệu khảo sát.</p>
+    <div class="cats" id="cats"></div>
+  </div>
+
+  <div id="view-set" hidden>
+    <form id="setform" autocomplete="off" onsubmit="return false">
+    <div class="settings">
+      <section class="card" aria-labelledby="h-ai">
+        <h2 id="h-ai">AI tóm tắt tiếng Việt</h2>
+        <p class="hint">Mặc định không dùng AI — app vẫn chạy đầy đủ. Bật AI để có tính năng và điểm mạnh tiếng Việt cho repo chưa có tóm tắt tay.</p>
+        <label class="field"><span>Nhà cung cấp</span><select id="ai-provider"></select></label>
+        <div id="ai-fields">
+          <div class="row2">
+            <label class="field"><span>Loại API</span><select id="ai-kind"><option value="openai">Tương thích OpenAI</option><option value="anthropic">Anthropic</option></select></label>
+            <label class="field"><span>Model</span><input id="ai-model" placeholder="vd: gpt-4o-mini"></label>
+          </div>
+          <label class="field" style="margin-top:10px"><span>Base URL</span><input id="ai-base" placeholder="https://…/v1" inputmode="url"></label>
+          <label class="field" style="margin-top:10px"><span>API key <span id="ai-key-state"></span></span>
+            <input id="ai-key" type="password" placeholder="Dán key mới (để trống = giữ key cũ)"></label>
+          <div class="inline" style="margin-top:6px"><button class="btn btn-sm" type="button" id="ai-key-clear" hidden>Xóa key đã lưu</button><span class="hint" id="ai-key-link"></span></div>
+        </div>
+        <div class="row2">
+          <label class="field"><span>Số repo tối đa gọi AI mỗi lần</span><input id="ai-max" type="number" min="0" max="500"></label>
+          <label class="field"><span>Số luồng</span><input id="ai-workers" type="number" min="1" max="8"></label>
+        </div>
+        <p class="hint" id="ai-estimate"></p>
+        <div class="inline">
+          <button class="btn btn-sm" type="button" id="ai-test">Kiểm tra kết nối AI</button>
+          <button class="btn btn-sm" type="button" id="ai-clear">Xóa cache AI</button>
+        </div>
+        <p class="msg" id="ai-msg" hidden></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-sch">
+        <h2 id="h-sch">Lịch quét hằng tuần</h2>
+        <label class="check"><input type="checkbox" id="sch-on"> Bật quét tự động</label>
+        <div class="row3">
+          <label class="field"><span>Ngày</span><select id="sch-day">
+            <option value="mon">Thứ Hai</option><option value="tue">Thứ Ba</option><option value="wed">Thứ Tư</option>
+            <option value="thu">Thứ Năm</option><option value="fri">Thứ Sáu</option><option value="sat">Thứ Bảy</option><option value="sun">Chủ Nhật</option></select></label>
+          <label class="field"><span>Giờ</span><input id="sch-hour" type="number" min="0" max="23"></label>
+          <label class="field"><span>Phút</span><input id="sch-min" type="number" min="0" max="59"></label>
+        </div>
+        <label class="field"><span>Múi giờ</span><input id="sch-tz" list="tzlist" placeholder="Asia/Ho_Chi_Minh"></label>
+        <datalist id="tzlist"><option value="Asia/Ho_Chi_Minh"><option value="Asia/Bangkok"><option value="Asia/Singapore"><option value="Asia/Tokyo"><option value="Europe/London"><option value="Europe/Berlin"><option value="America/New_York"><option value="America/Los_Angeles"><option value="UTC"></datalist>
+        <p class="hint" id="sch-next"></p>
+        <p class="hint">Nếu máy tắt đúng giờ hẹn, app sẽ chạy bù khi bật lại (trong vòng 6 giờ).</p>
+      </section>
+
+      <section class="card" aria-labelledby="h-gh">
+        <h2 id="h-gh">GitHub</h2>
+        <label class="field"><span>Token (tùy chọn) <span id="gh-token-state"></span></span>
+          <input id="gh-token" type="password" placeholder="ghp_… (để trống = giữ nguyên)"></label>
+        <div class="inline"><button class="btn btn-sm" type="button" id="gh-token-clear" hidden>Xóa token</button>
+          <span class="hint">Có token: quét nhanh gấp ~3 lần. Tạo tại <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Fine-grained token</a>, chỉ cần quyền đọc repo công khai.</span></div>
+        <label class="field"><span>Số sao tối thiểu</span><input id="gh-stars" type="number" min="0"></label>
+        <div class="field"><span>Ngành cần quét</span>
+          <div class="inline"><button class="btn btn-sm" type="button" id="gh-all">Chọn tất cả</button><button class="btn btn-sm" type="button" id="gh-none">Bỏ chọn</button></div>
+          <div class="catgrid" id="gh-cats"></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-tg">
+        <h2 id="h-tg">Thông báo Telegram</h2>
+        <p class="hint">Tạo bot với <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, nhắn /start cho bot, rồi lấy chat ID (xem README).</p>
+        <label class="field"><span>Bot token <span id="tg-token-state"></span></span>
+          <input id="tg-token" type="password" placeholder="123456:ABC… (để trống = giữ nguyên)"></label>
+        <div class="inline"><button class="btn btn-sm" type="button" id="tg-token-clear" hidden>Xóa bot token</button></div>
+        <div class="row2">
+          <label class="field"><span>Chat ID</span><input id="tg-chat" inputmode="numeric"></label>
+          <label class="field"><span>Ngưỡng điểm</span><input id="tg-min" type="number" min="0" max="100"></label>
+        </div>
+        <div class="inline"><button class="btn btn-sm" type="button" id="tg-test">Gửi thử</button></div>
+        <p class="msg" id="tg-msg" hidden></p>
+      </section>
+    </div>
+    <div class="savebar">
+      <button class="btn btn-primary" type="button" id="btn-save">Lưu</button>
+      <span class="msg" id="save-msg" hidden></span>
+    </div>
+    </form>
+  </div>
+
+  <p class="legal">⚖️ Phân loại license là tự động, đọc license trước khi ký hợp đồng. Giá và ngách là giả định cần kiểm chứng.</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script>
+
+const GROUPS = {
+  "permissive":{label:"SaaS thoải mái",color:"var(--ok)",v:"v-ok"},
+  "gpl":{label:"GPL",color:"var(--ok)",v:"v-ok"},
+  "agpl":{label:"AGPL",color:"var(--warn)",v:"v-warn"},
+  "single-tenant":{label:"Triển khai riêng từng khách",color:"var(--warn)",v:"v-warn"},
+  "unknown":{label:"Cần đọc tay",color:"var(--unk)",v:"v-unk"},
+  "restricted":{label:"Loại: cấm bán dịch vụ",color:"var(--bad)",v:"v-bad"},
+  "none":{label:"Loại: không có license",color:"var(--bad)",v:"v-bad"}
+};
+const ORDER = ["permissive","gpl","agpl","single-tenant","unknown","restricted","none"];
+const PHASES = {search:"Tìm repo", detail:"Đọc chi tiết", ai:"AI tóm tắt", save:"Lưu"};
+const KEY_LINKS = {
+  openai:"https://platform.openai.com/api-keys", gemini:"https://aistudio.google.com/apikey",
+  deepseek:"https://platform.deepseek.com/api_keys", openrouter:"https://openrouter.ai/keys",
+  groq:"https://console.groq.com/keys", anthropic:"https://console.anthropic.com/settings/keys"
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtK = n => n >= 1000 ? (n/1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n);
+const fmtTime = iso => iso ? new Date(iso).toLocaleString("vi-VN",{dateStyle:"short",timeStyle:"short"}) : "—";
+const fmtDur = s => s >= 60 ? `${Math.floor(s/60)} phút ${Math.round(s%60)} giây` : `${Math.round(s)} giây`;
+const isOut = r => ["restricted","none"].includes(r.license_group);
+
+let DATA = {repos:[], kb:{}}, repos = [], SETTINGS = null, STATUS = null, wasRunning = false, pollTimer = null;
+let state = {q:"", cat:"", sort:"score", safe:true, saas:false, rising:false, new:false, cur:false, sel:null, tab:"repo"};
+try { Object.assign(state, JSON.parse(localStorage.getItem("radar-filters") || "{}"), {sel:null}); } catch(e) {}
+
+async function api(path, opts={}) {
+  const o = {headers:{"Content-Type":"application/json"}, ...opts};
+  if (o.body && typeof o.body !== "string") o.body = JSON.stringify(o.body);
+  let r;
+  try { r = await fetch(path, o); } catch(e) { throw new Error("Không kết nối được tới app. App còn chạy không?"); }
+  let j = null; try { j = await r.json(); } catch(e) {}
+  if (!r.ok) throw new Error((j && j.detail) || `Lỗi ${r.status}`);
+  return j;
+}
+function toast(msg, ms=3200){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, ms); }
+function showMsg(el, kind, text){ el.className = "msg " + kind; el.textContent = text; el.hidden = false; }
+
+// ---------------- Theme ----------------
+function applyTheme(t){ if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+try { applyTheme(localStorage.getItem("radar-theme")); } catch(e) {}
+$("#btn-theme").addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const t = dark ? "light" : "dark"; applyTheme(t); try { localStorage.setItem("radar-theme", t); } catch(e) {}
+});
+
+// ---------------- Data ----------------
+async function loadData(){
+  DATA = await api("/api/data");
+  repos = (DATA.repos || []).map(r => Object.assign({}, DATA.kb[r.category] || {}, r, {
+    _blob: (r.name + " " + r.description + " " + (r.topics||[]).join(" ") + " " + (r.features||[]).join(" ") + " " + (r.strengths||[]).join(" ")).toLowerCase()
+  }));
+  $("#scanned").textContent = DATA.scanned_at ? fmtTime(DATA.scanned_at) + (DATA.sample ? " (dữ liệu mẫu)" : "") : "chưa quét";
+  const catNames = [...new Map(repos.map(r => [r.category, r.category_label])).entries()].sort((a,b)=>a[1].localeCompare(b[1],"vi"));
+  $("#cat").innerHTML = `<option value="">Tất cả ngành</option>` + catNames.map(([k,v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  if (state.cat && !catNames.find(([k]) => k === state.cat)) state.cat = "";
+  renderDist(); syncControls(); renderList(); renderCats(); showTab(state.tab);
+}
+
+function renderDist(){
+  const total = repos.length || 1;
+  const n = g => repos.filter(r => r.license_group === g).length;
+  $("#distbar").innerHTML = ORDER.map(g => n(g) ? `<span style="width:${n(g)/total*100}%;background:${GROUPS[g].color};opacity:${g==="gpl"?.65:1}" title="${GROUPS[g].label}: ${n(g)}"></span>` : "").join("");
+  $("#legend").innerHTML = `<span class="mono">${repos.length} repo</span>` + ORDER.map(g => n(g) ? `<span><i style="background:${GROUPS[g].color};opacity:${g==="gpl"?.65:1}"></i>${GROUPS[g].label} <b class="mono">${n(g)}</b></span>` : "").join("");
+}
+
+function filtered(){
+  const q = state.q.trim().toLowerCase();
+  const out = repos.filter(r =>
+    (!state.safe || !isOut(r)) &&
+    (!state.saas || ["permissive","gpl"].includes(r.license_group)) &&
+    (!state.rising || r.rising) && (!state.new || r.is_new) &&
+    (!state.cur || ["curated","ai"].includes(r.feat_src)) &&
+    (!state.cat || r.category === state.cat) && (!q || r._blob.includes(q)));
+  const key = {score:r=>r.score.total, vnfit:r=>r.score.vnfit*100+r.score.total, stars:r=>r.stars,
+               delta:r=>(r.tech.weekly_delta ?? -1e9)*1000 + r.tech.stars_per_day}[state.sort];
+  return out.sort((a,b) => key(b) - key(a));
+}
+
+function renderList(){
+  const list = filtered();
+  $("#count").textContent = `${list.length} repo`;
+  if (!list.length) { $("#list").innerHTML = `<div class="empty">Không có repo khớp bộ lọc. Thử bỏ bớt điều kiện.</div>`; renderDetail(null); return; }
+  if (!state.sel || !list.find(r => r.name === state.sel)) state.sel = list[0].name;
+  $("#list").innerHTML = list.map(r => `
+    <div class="row" role="listitem" tabindex="0" data-name="${esc(r.name)}" aria-current="${r.name===state.sel}">
+      <div class="score" title="Điểm tổng / 100">${r.score.total}</div>
+      <div style="min-width:0">
+        <div class="rname">${esc(r.name)}${r.is_new?'<span class="badge-new">mới</span>':''} ${r.rising?'<span class="rising">· mới nổi</span>':''}</div>
+        ${r.features.length?`<div class="rfeat">${esc(r.features.slice(0,2).join(' · '))}</div>`:''}
+        <div class="rmeta"><span>${esc(r.category_label)}</span><span class="mono">★ ${fmtK(r.stars)}</span>${r.tech.weekly_delta?`<span class="mono delta">+${r.tech.weekly_delta}/tuần</span>`:''}<span>${esc(r.language||"")}</span></div>
+      </div>
+      <span class="pill g-${r.license_group}">${esc(GROUPS[r.license_group].label)}</span>
+    </div>`).join("");
+  renderDetail(repos.find(r => r.name === state.sel));
+}
+
+function li(arr, cls="clean"){ return `<ul class="${cls}">${(arr||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`; }
+function srcLabel(r){
+  if (r.feat_src === "curated") return "Tóm tắt tay";
+  if (r.feat_src === "ai") return "AI: " + (r.ai_model || "?");
+  if (r.feat_src === "readme") return "Trích README, chưa dịch";
+  return "";
+}
+
+function renderDetail(r){
+  const d = $("#detail");
+  if (!r) { d.innerHTML = `<div class="empty">Chọn một repo để xem hồ sơ bán hàng.</div>`; return; }
+  const g = GROUPS[r.license_group];
+  const parts = [["License an toàn",r.score.license,30],["Hoạt động",r.score.activity,15],["Sức hút",r.score.traction,15],["Dễ tự host",r.score.selfhost,15],["Phù hợp VN",r.score.vnfit,25]];
+  const t = r.tech, src = srcLabel(r);
+  d.innerHTML = `
+    <div class="dhead">
+      <h2><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>${r.is_new?'<span class="badge-new">mới tuần này</span>':''}</h2>
+      <p class="desc">${esc(r.description)}</p>
+      <div class="facts">
+        <span>★ <b class="mono">${r.stars.toLocaleString("vi-VN")}</b></span>
+        ${t.weekly_delta!=null?`<span>Sao tăng trong tuần <b class="mono">${t.weekly_delta>=0?"+":""}${t.weekly_delta}</b></span>`:`<span>+<b class="mono">${t.stars_per_day}</b> sao/ngày (TB)</span>`}
+        <span>Commit cuối <b class="mono">${t.push_days}</b> ngày trước</span>
+        <span>${esc(r.language||"?")}</span>
+        <span>Docker: <b>${t.compose?"có compose":t.docker?"có Dockerfile":"không"}</b></span>
+        <span>Tiếng Việt: <b>${t.vi?"có":"chưa"}</b></span>
+      </div>
+    </div>
+    <section>
+      <h3>Mô hình kinh doanh an toàn</h3>
+      <div class="verdict ${g.v}">
+        <strong>${esc(r.deploy_model)}</strong>
+        <p>${esc(r.deploy_detail)}</p>
+        <a href="${esc(r.license_url)}" target="_blank" rel="noopener">License: ${esc(r.license)} ↗</a>
+      </div>
+    </section>
+    <section>
+      <h3>Tính năng chính${src?` <span class="src">${esc(src)}</span>`:''}</h3>
+      ${r.features.length ? `<ul class="feat">${r.features.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="note">README không có mục tính năng rõ ràng. Mở <a href="${esc(r.url)}" target="_blank" rel="noopener">trang repo</a> hoặc bản demo để xem.</p>`}
+    </section>
+    <section>
+      <h3>Điểm mạnh nổi bật</h3>
+      <div class="strengths">
+        ${(r.strengths||[]).map(x=>`<div class="st st-main">${esc(x)}</div>`).join("")}
+        ${(r.auto_strengths||[]).map(x=>`<div class="st">${esc(x)}</div>`).join("")}
+        ${!(r.strengths||[]).length && !(r.auto_strengths||[]).length ? '<p class="note">Chưa có điểm mạnh nổi bật từ dữ liệu quét.</p>' : ''}
+      </div>
+    </section>
+    <section>
+      <h3>Điểm ${r.score.total}/100</h3>
+      <div class="breakdown">${parts.map(([n,v,m])=>`<span>${n}</span><div class="track"><span style="width:${Math.max(0,v)/m*100}%"></span></div><span class="mono">${v}/${m}</span>`).join("")}</div>
+    </section>
+    <section>
+      <h3>Ngách nên đánh</h3>
+      <div class="niche">${(r.niches||[]).map(n=>`<div>${esc(n)}</div>`).join("")}</div>
+      ${r.niche_hint?`<p class="ainiche" style="margin:8px 0 0"><b>Gợi ý riêng của AI:</b> ${esc(r.niche_hint)}</p>`:""}
+    </section>
+    <div class="cols">
+      <section><h3>Khách hàng phù hợp</h3>${li(r.customers)}</section>
+      <section><h3>Kênh tiếp cận</h3>${li(r.channels)}</section>
+    </div>
+    <section><h3>Câu mở lời với khách</h3><div class="hook">${esc(r.hook)}</div></section>
+    <section><h3>Kế hoạch 12 tuần</h3><ol class="steps">${(r.playbook||[]).map(s=>`<li>${esc(s)}</li>`).join("")}</ol></section>
+    <section><h3>Cải tiến cho thị trường Việt Nam</h3>${li(r.improvements)}</section>
+    <section>
+      <h3>Đối thủ và định giá</h3>
+      <dl class="kv">
+        <dt>Đối thủ nội địa</dt><dd>${esc(r.competitors)}</dd>
+        <dt>Cách khác biệt</dt><dd>${esc(r.differentiate)}</dd>
+        <dt>Giá gợi ý</dt><dd>${esc(r.pricing)}</dd>
+        <dt>Rủi ro dữ liệu</dt><dd>${esc(r.data_risk)}</dd>
+      </dl>
+    </section>
+    ${(r.risks||[]).length?`<section><h3>Rủi ro cần lưu ý</h3>${li(r.risks,"clean riskl")}</section>`:""}`;
+  d.scrollTop = 0;
+}
+
+function renderCats(){
+  const byCat = {};
+  repos.forEach(r => (byCat[r.category] ||= []).push(r));
+  const cards = Object.entries(byCat).map(([k, rs]) => {
+    const f = rs[0];
+    const safe = rs.filter(r => !isOut(r)).sort((a,b)=>b.score.total-a.score.total);
+    return {k, f, safe, fit: (f.demand||0)*3 + (6-(f.competition||0))*2, n: rs.length};
+  }).sort((a,b) => b.fit - a.fit || b.safe.length - a.safe.length);
+  const meter = n => `<span class="meter">${"●".repeat(n||0)}${"○".repeat(5-(n||0))}</span>`;
+  $("#cats").innerHTML = cards.map(({f,safe,n}) => `
+    <div class="cat">
+      <h2>${esc(f.category_label)}</h2>
+      <div class="dots"><span>Nhu cầu ${meter(f.demand)}</span><span>Cạnh tranh ${meter(f.competition)}</span></div>
+      <section><h3>Ngách nên đánh</h3><div class="niche">${(f.niches||[]).map(x=>`<div>${esc(x)}</div>`).join("")}</div></section>
+      <section><h3>Khách hàng</h3>${li(f.customers)}</section>
+      <section><h3>Repo an toàn tốt nhất (${safe.length}/${n})</h3><div class="top">${safe.slice(0,4).map(r=>`<button data-go="${esc(r.name)}"><span style="overflow-wrap:anywhere">${esc(r.name)}</span><span class="pill g-${r.license_group}">${r.score.total}</span></button>`).join("") || '<span class="note">Chưa có repo license an toàn trong lần quét này.</span>'}</div></section>
+    </div>`).join("");
+}
+
+function save(){ try{ const {sel, ...s} = state; localStorage.setItem("radar-filters", JSON.stringify(s)); }catch(e){} }
+const CHIPS = [["#f-safe","safe"],["#f-saas","saas"],["#f-rising","rising"],["#f-new","new"],["#f-cur","cur"]];
+function syncControls(){
+  $("#q").value = state.q; $("#cat").value = state.cat; $("#sort").value = state.sort;
+  CHIPS.forEach(([id,k]) => $(id).setAttribute("aria-pressed", state[k]));
+}
+function showTab(t){
+  state.tab = t; save();
+  const empty = !repos.length;
+  ["repo","cat","set"].forEach(x => $("#tab-"+x).setAttribute("aria-selected", x===t));
+  $("#view-repo").style.display = t==="repo" && !empty ? "contents" : "none";
+  $("#view-cat").hidden = t!=="cat" || empty;
+  $("#view-set").hidden = t!=="set";
+  $("#view-empty").hidden = t==="set" || !empty;
+  if (t === "set") loadSettings();
+}
+
+$("#q").addEventListener("input", e => { state.q = e.target.value; save(); renderList(); });
+$("#cat").addEventListener("change", e => { state.cat = e.target.value; save(); renderList(); });
+$("#sort").addEventListener("change", e => { state.sort = e.target.value; save(); renderList(); });
+CHIPS.forEach(([id,k]) => $(id).addEventListener("click", () => { state[k] = !state[k]; syncControls(); save(); renderList(); }));
+$("#list").addEventListener("click", e => { const row = e.target.closest(".row"); if (!row) return; state.sel = row.dataset.name; renderList(); if (innerWidth <= 900) $("#detail").scrollIntoView({behavior:"smooth"}); });
+$("#list").addEventListener("keydown", e => { if ((e.key==="Enter"||e.key===" ") && e.target.classList.contains("row")) { e.preventDefault(); e.target.click(); } });
+["repo","cat","set"].forEach(t => $("#tab-"+t).addEventListener("click", () => showTab(t)));
+$("#cats").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (!b) return;
+  Object.assign(state, {q:"", cat:"", safe:true, saas:false, rising:false, new:false, cur:false, sel:b.dataset.go});
+  syncControls(); showTab("repo"); renderList(); $("#detail").scrollIntoView({behavior:"smooth", block:"start"}); });
+
+// ---------------- Quét & tiến độ ----------------
+async function startScan(){
+  try {
+    const r = await api("/api/scan", {method:"POST"});
+    if (!r.started) toast("Đang có lần quét chạy — xem tiến độ ở trên.");
+    renderStatus(r.status); schedulePoll(500);
+  } catch(e) { toast(e.message); }
+}
+$("#btn-scan").addEventListener("click", startScan);
+$("#btn-scan2").addEventListener("click", startScan);
+$("#btn-stop").addEventListener("click", async () => { try { await api("/api/scan/stop", {method:"POST"}); toast("Đang dừng… dữ liệu cũ được giữ nguyên."); } catch(e) { toast(e.message); } });
+$("#btn-sample").addEventListener("click", async () => {
+  try { const r = await api("/api/sample", {method:"POST"}); toast(`Đã nạp ${r.loaded} repo mẫu`); await loadData(); } catch(e) { toast(e.message); }
+});
+
+function renderStatus(s){
+  STATUS = s;
+  const p = $("#progress");
+  $("#btn-scan").textContent = s.running ? "Đang quét…" : "Quét ngay";
+  p.hidden = !s.running;
+  if (s.running) {
+    const pct = s.total ? Math.min(100, s.done / s.total * 100) : 0;
+    $("#p-msg").textContent = s.stopping ? "Đang dừng…" : (s.message || "Đang quét…");
+    $("#p-count").textContent = s.total ? `${s.done}/${s.total}` : "";
+    $("#p-elapsed").textContent = fmtDur(s.elapsed_s || 0);
+    $("#p-bar").style.width = pct + "%";
+    const order = ["search","detail","ai"], cur = order.indexOf(s.phase);
+    $("#p-phases").innerHTML = order.map((ph,i) => i===cur ? `<b>${PHASES[ph]}</b>` : `<span>${i<cur?"✓ ":""}${PHASES[ph]}</span>`).join("<span>→</span>");
+    $("#btn-stop").disabled = !!s.stopping;
+  }
+  const L = s.last_run, bits = [];
+  if (L) {
+    const cls = {ok:"st-ok", error:"st-err", stopped:"st-stop"}[L.status], txt = {ok:"thành công", error:"lỗi", stopped:"đã dừng"}[L.status];
+    bits.push(`<span>Lần chạy gần nhất: <b>${fmtTime(L.started_at)}</b> · <b class="${cls}">${txt}</b>${L.status==="ok"?` · <b>${L.repos}</b> repo · AI tóm tắt <b>${L.ai_summarized}</b> (gọi mới ${L.ai_calls})`:""} · ${fmtDur(L.duration_s||0)}</span>`);
+    if (L.error && L.status !== "ok") bits.push(`<span class="${cls}">${esc(L.error)}</span>`);
+    if (L.ai_error) bits.push(`<span class="st-stop">AI: ${esc(L.ai_error)}</span>`);
+  }
+  bits.push(`<span>Lần chạy tới: <b>${s.next_run ? fmtTime(s.next_run) : "lịch đang tắt"}</b></span>`);
+  const e = s.ai_estimate;
+  if (e && e.enabled && !s.running) bits.push(`<span>Ước tính gọi AI lần tới: <b>${s.has_data ? "~" + e.calls : "tối đa " + e.max_repos}</b>${s.has_data?` (${e.cached} đã có trong cache)`:""}</span>`);
+  $("#runinfo").innerHTML = bits.join("");
+  if (wasRunning && !s.running) { loadData(); if (L && L.status==="ok") toast(`Quét xong: ${L.repos} repo`); else if (L) toast(L.error || "Quét kết thúc"); }
+  wasRunning = s.running;
+}
+async function poll(){
+  try { renderStatus(await api("/api/status")); } catch(e) {}
+  schedulePoll(STATUS && STATUS.running ? 2000 : 20000);
+}
+function schedulePoll(ms){ clearTimeout(pollTimer); pollTimer = setTimeout(poll, ms); }
+
+// ---------------- Cài đặt ----------------
+function secretState(el, btn, set, last4){
+  el.textContent = set ? `(đã lưu, kết thúc bằng …${last4})` : "(chưa có)";
+  btn.hidden = !set;
+}
+async function loadSettings(){
+  try { SETTINGS = await api("/api/settings"); } catch(e) { toast(e.message); return; }
+  const s = SETTINGS;
+  $("#ai-provider").innerHTML = `<option value="none">Không dùng AI</option>` + Object.entries(s.presets).map(([k,p]) => `<option value="${k}">${esc(p.label)}</option>`).join("");
+  $("#ai-provider").value = s.ai.provider; $("#ai-kind").value = s.ai.kind; $("#ai-base").value = s.ai.base_url; $("#ai-model").value = s.ai.model;
+  $("#ai-key").value = ""; $("#ai-max").value = s.ai.max_repos; $("#ai-workers").value = s.ai.workers;
+  secretState($("#ai-key-state"), $("#ai-key-clear"), s.ai.api_key_set, s.ai.api_key_last4);
+  $("#sch-on").checked = s.schedule.enabled; $("#sch-day").value = s.schedule.day_of_week; $("#sch-hour").value = s.schedule.hour; $("#sch-min").value = s.schedule.minute; $("#sch-tz").value = s.schedule.timezone;
+  $("#sch-next").textContent = s.schedule.enabled ? `Lịch: ${s.schedule_text} · Lần chạy tới: ${fmtTime(s.next_run)}` : "Lịch đang tắt.";
+  $("#gh-token").value = ""; $("#gh-stars").value = s.github.min_stars;
+  secretState($("#gh-token-state"), $("#gh-token-clear"), s.github.token_set, s.github.token_last4);
+  const sel = s.github.categories;
+  $("#gh-cats").innerHTML = Object.entries(s.categories).map(([k,v]) => `<label><input type="checkbox" value="${k}" ${!sel.length || sel.includes(k) ? "checked" : ""}> ${esc(v)}</label>`).join("");
+  $("#tg-token").value = ""; $("#tg-chat").value = s.telegram.chat_id; $("#tg-min").value = s.telegram.min_score;
+  secretState($("#tg-token-state"), $("#tg-token-clear"), s.telegram.bot_token_set, s.telegram.bot_token_last4);
+  updateAiFields();
+  const e = STATUS && STATUS.ai_estimate;
+  $("#ai-estimate").textContent = e && e.enabled ? (STATUS.has_data ? `Ước tính lần quét tới: ~${e.calls} lần gọi AI (${e.candidates} repo cần tóm tắt, ${e.cached} đã có trong cache).` : `Lần quét đầu: tối đa ${e.max_repos} lần gọi AI.`) : "";
+}
+function updateAiFields(){
+  const p = $("#ai-provider").value;
+  $("#ai-fields").hidden = p === "none";
+  const link = KEY_LINKS[p];
+  $("#ai-key-link").innerHTML = link ? `Lấy key tại <a href="${link}" target="_blank" rel="noopener">${new URL(link).host}</a>` : (["ollama","lmstudio"].includes(p) ? "Chạy trên máy bạn — không cần key." : "");
+}
+$("#ai-provider").addEventListener("change", () => {
+  const p = SETTINGS && SETTINGS.presets[$("#ai-provider").value];
+  if (p) { $("#ai-kind").value = p.kind; $("#ai-base").value = p.base_url; $("#ai-model").value = p.model; }
+  updateAiFields();
+});
+function collect(){
+  const num = id => $(id).value === "" ? undefined : Number($(id).value);
+  const cats = [...document.querySelectorAll("#gh-cats input")];
+  const chosen = cats.filter(c => c.checked).map(c => c.value);
+  const body = {
+    ai: {provider: $("#ai-provider").value, kind: $("#ai-kind").value, base_url: $("#ai-base").value, model: $("#ai-model").value,
+         max_repos: num("#ai-max"), workers: num("#ai-workers")},
+    schedule: {enabled: $("#sch-on").checked, day_of_week: $("#sch-day").value, hour: num("#sch-hour"), minute: num("#sch-min"), timezone: $("#sch-tz").value},
+    github: {min_stars: num("#gh-stars"), categories: chosen.length === cats.length ? [] : chosen},
+    telegram: {chat_id: $("#tg-chat").value, min_score: num("#tg-min")},
+  };
+  if ($("#ai-key").value.trim()) body.ai.api_key = $("#ai-key").value.trim();
+  if ($("#gh-token").value.trim()) body.github.token = $("#gh-token").value.trim();
+  if ($("#tg-token").value.trim()) body.telegram.bot_token = $("#tg-token").value.trim();
+  return body;
+}
+async function saveSettings(extra){
+  const msg = $("#save-msg");
+  try {
+    const body = collect();
+    if (extra) for (const [g, v] of Object.entries(extra)) Object.assign(body[g], v);
+    if (!body.github.categories.length && ![...document.querySelectorAll("#gh-cats input")].some(c => c.checked)) throw new Error("Chọn ít nhất một ngành cần quét");
+    await api("/api/settings", {method:"POST", body});
+    showMsg(msg, "ok", "Đã lưu"); setTimeout(() => msg.hidden = true, 3000);
+    await loadSettings(); poll();
+  } catch(e) { showMsg(msg, "err", e.message); }
+}
+$("#btn-save").addEventListener("click", () => saveSettings());
+$("#ai-key-clear").addEventListener("click", () => confirm("Xóa API key đã lưu?") && saveSettings({ai:{clear_api_key:true}}));
+$("#gh-token-clear").addEventListener("click", () => confirm("Xóa GitHub token đã lưu?") && saveSettings({github:{clear_token:true}}));
+$("#tg-token-clear").addEventListener("click", () => confirm("Xóa bot token đã lưu?") && saveSettings({telegram:{clear_bot_token:true}}));
+$("#gh-all").addEventListener("click", () => document.querySelectorAll("#gh-cats input").forEach(c => c.checked = true));
+$("#gh-none").addEventListener("click", () => document.querySelectorAll("#gh-cats input").forEach(c => c.checked = false));
+$("#ai-test").addEventListener("click", async () => {
+  const el = $("#ai-msg"), b = $("#ai-test"); b.disabled = true; showMsg(el, "info", "Đang gọi thử…");
+  const a = collect().ai;
+  try {
+    const r = await api("/api/ai/test", {method:"POST", body:{provider:a.provider, kind:a.kind, base_url:a.base_url, model:a.model, api_key:a.api_key||""}});
+    r.ok ? showMsg(el, "ok", `Kết nối thành công (${r.model}). AI trả lời: "${r.reply}". Nhớ bấm Lưu.`) : showMsg(el, "err", r.error);
+  } catch(e) { showMsg(el, "err", e.message); }
+  b.disabled = false;
+});
+$("#ai-clear").addEventListener("click", async () => {
+  if (!confirm("Xóa toàn bộ cache AI? Lần quét sau sẽ gọi AI lại cho mọi repo.")) return;
+  try { const r = await api("/api/ai/clear-cache", {method:"POST"}); showMsg($("#ai-msg"), "ok", `Đã xóa ${r.cleared} mục trong cache.`); poll(); } catch(e) { toast(e.message); }
+});
+$("#tg-test").addEventListener("click", async () => {
+  const el = $("#tg-msg"); showMsg(el, "info", "Đang gửi…");
+  try {
+    const r = await api("/api/notify/test", {method:"POST", body:{bot_token: $("#tg-token").value.trim(), chat_id: $("#tg-chat").value.trim()}});
+    r.ok ? showMsg(el, "ok", "Đã gửi. Kiểm tra Telegram của bạn. Nhớ bấm Lưu.") : showMsg(el, "err", r.error);
+  } catch(e) { showMsg(el, "err", e.message); }
+});
+
+// ---------------- Khởi động ----------------
+(async () => {
+  try { await loadData(); } catch(e) { toast(e.message); }
+  poll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+services:
+  oss-radar:
+    build: .
+    image: oss-radar:latest
+    container_name: oss-radar
+    restart: unless-stopped
+    ports:
+      # Mặc định chỉ mở cho máy này. Muốn máy khác truy cập: đổi thành "8080:8080"
+      # và BẮT BUỘC đặt APP_PASSWORD bên dưới.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      - APP_URL=${APP_URL:-http://localhost:8080}
+      - TZ=Asia/Ho_Chi_Minh
+    # Cho phép container gọi Ollama/LM Studio chạy trên máy host (Linux cần dòng này)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
