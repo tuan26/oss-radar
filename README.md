@@ -77,6 +77,24 @@ Nên đặt app sau reverse proxy có HTTPS (Caddy, Nginx) để mật khẩu kh
 | `APP_URL` | (trống) | Link mở app, gắn vào tin nhắn Telegram |
 | `DATA_DIR` | `./data` | Thư mục lưu dữ liệu |
 
+## 2b. Triển khai lên VPS Vultr bằng một lệnh
+
+1. Vultr → **Deploy New Server** → *Cloud Compute – Shared CPU* → vùng **Singapore** (gần VN nhất)
+   → hệ điều hành **Ubuntu 24.04** → gói 1 vCPU / 1 GB RAM (khoảng 5–6 USD/tháng) → Deploy.
+2. (Tùy chọn, nên làm) Trỏ tên miền về server: tạo bản ghi **A** `radar.ten-mien.vn` → IP server.
+3. Mở **View Console** trên Vultr (hoặc `ssh root@IP`, mật khẩu root ở trang server) và chạy:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tuan26/oss-radar/main/deploy/vultr-setup.sh | DOMAIN=radar.ten-mien.vn bash
+```
+
+Không có tên miền thì bỏ phần `DOMAIN=...` (app chạy ở `http://IP-server`, không có HTTPS).
+
+Script tự cài Docker, tạo swap, bật tường lửa (chỉ mở 22/80/443), tạo **mật khẩu ngẫu nhiên**, cấp
+HTTPS (Let's Encrypt qua Caddy) nếu có tên miền, rồi in ra địa chỉ và mật khẩu. Code nằm ở
+`/opt/oss-radar`, dữ liệu ở `/opt/oss-radar/data`, mật khẩu ở `/opt/oss-radar/.env`.
+**Cập nhật** lên code mới: chạy lại đúng lệnh trên (dữ liệu và mật khẩu được giữ).
+
 ## 3. Cấu hình AI (không bắt buộc)
 
 Vào **Cài đặt → AI**, chọn nhà cung cấp, dán API key, bấm **Kiểm tra kết nối**, rồi **Lưu**.

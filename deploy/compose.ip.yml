@@ -1,0 +1,5 @@
+# Dùng khi KHÔNG có tên miền: mở app ở cổng 80 của server (http://IP-SERVER). Không có HTTPS.
+services:
+  oss-radar:
+    ports:
+      - "80:8080"

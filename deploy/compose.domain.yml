@@ -1,0 +1,19 @@
+# Dùng khi có tên miền: Caddy nhận cổng 80/443, cấp HTTPS tự động, chuyển tiếp vào app.
+services:
+  caddy:
+    image: caddy:2
+    container_name: oss-radar-caddy
+    restart: unless-stopped
+    depends_on: [oss-radar]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:
