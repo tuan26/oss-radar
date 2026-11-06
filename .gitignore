@@ -3,3 +3,5 @@ data/
 __pycache__/
 *.pyc
 .pytest_cache/
+oss-radar-v1.zip
+*.png
