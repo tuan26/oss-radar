@@ -90,6 +90,18 @@ curl -fsSL https://raw.githubusercontent.com/tuan26/oss-radar/main/deploy/vultr-
 
 Không có tên miền thì bỏ phần `DOMAIN=...` (app chạy ở `http://IP-server`, không có HTTPS).
 
+**Server đang chạy chương trình khác (vd tool trading)?** Script không bật/tắt tường lửa, không cài
+lại Docker, không đụng container khác, và **dừng ngay trước khi thay đổi gì** nếu cổng đã có người
+dùng. Nên xem trước:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tuan26/oss-radar/main/deploy/vultr-setup.sh | CHECK_ONLY=1 APP_PORT=8090 bash
+```
+
+Ổn thì chạy lại lệnh đó nhưng bỏ `CHECK_ONLY=1` (app ở `http://IP-server:8090`). Cổng nội bộ mặc định
+`127.0.0.1:8080`; nếu bị trùng, thêm `APP_LOCAL_PORT=18080`. Lưu ý: chung server thì app (khi quét,
+nhất là lúc build lần đầu) sẽ dùng chung CPU/RAM với tool trading.
+
 Script tự cài Docker, tạo swap, bật tường lửa (chỉ mở 22/80/443), tạo **mật khẩu ngẫu nhiên**, cấp
 HTTPS (Let's Encrypt qua Caddy) nếu có tên miền, rồi in ra địa chỉ và mật khẩu. Code nằm ở
 `/opt/oss-radar`, dữ liệu ở `/opt/oss-radar/data`, mật khẩu ở `/opt/oss-radar/.env`.
